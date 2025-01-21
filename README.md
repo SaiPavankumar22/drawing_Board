@@ -109,7 +109,6 @@ A web application that allows users (e.g., doctors) to draw and submit drawings 
 
 ---
 
----
 
 ## Usage
 1. Open `draw.html` in a browser.
