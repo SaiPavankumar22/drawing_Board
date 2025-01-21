@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Drawing Board</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: crosshair;
+        }
+        .controls {
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #historySidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100%;
+            background: #fff;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            transition: right 0.3s ease;
+            padding: 20px;
+        }
+        #historySidebar.open {
+            right: 0;
+        }
+        #historySidebar img {
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+        }
+        #toggleHistory {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Digital Drawing Board</h1>
+        <canvas id="drawingBoard" width="400" height="300"></canvas>
+        <div class="controls">
+            <button id="clearButton">Clear</button>
+            <button id="submitButton">Submit</button>
+        </div>
+    </div>
+    <button id="toggleHistory">View History</button>
+    <div id="historySidebar">
+        <h2>History</h2>
+        <div id="historyContainer"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('drawingBoard');
+        const ctx = canvas.getContext('2d');
+        const clearButton = document.getElementById('clearButton');
+        const submitButton = document.getElementById('submitButton');
+        const toggleHistoryButton = document.getElementById('toggleHistory');
+        const historySidebar = document.getElementById('historySidebar');
+        const historyContainer = document.getElementById('historyContainer');
+
+        let isDrawing = false;
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+
+        clearButton.addEventListener('click', clearCanvas);
+        submitButton.addEventListener('click', submitData);
+        toggleHistoryButton.addEventListener('click', toggleHistory);
+
+        function startDrawing(event) {
+            isDrawing = true;
+            ctx.beginPath();
+            ctx.moveTo(event.offsetX, event.offsetY);
+        }
+
+        function draw(event) {
+            if (!isDrawing) return;
+            ctx.lineTo(event.offsetX, event.offsetY);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.closePath();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function submitData() {
+            const dataURL = canvas.toDataURL();
+
+            fetch('http://localhost:5000/api/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    drawing: dataURL
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Data submitted successfully!');
+                clearCanvas();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to submit data.');
+            });
+        }
+
+        function toggleHistory() {
+            if (historySidebar.classList.contains('open')) {
+                historySidebar.classList.remove('open');
+            } else {
+                historySidebar.classList.add('open');
+                fetchHistory();
+            }
+        }
+
+        function fetchHistory() {
+            fetch('http://127.0.0.1:5000/api/history')
+                .then(response => response.json())
+                .then(data => {
+                    historyContainer.innerHTML = ''; // Clear previous content
+                    data.drawings.forEach(drawing => {
+                        const img = document.createElement('img');
+                        img.src = drawing.image_data;
+                        img.alt = 'Saved Drawing';
+                        const timestamp = document.createElement('p');
+                        timestamp.innerText = `Saved on: ${new Date(drawing.timestamp).toLocaleString()}`;
+                        historyContainer.appendChild(img);
+                        historyContainer.appendChild(timestamp);
+                    });
+                })
+                .catch(error => console.error('Error fetching history:', error));
+        }
+    </script>
+</body>
+</html>
